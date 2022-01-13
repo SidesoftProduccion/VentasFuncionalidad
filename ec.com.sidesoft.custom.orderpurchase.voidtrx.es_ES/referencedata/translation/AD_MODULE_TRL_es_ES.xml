@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<compiereTrl baseLanguage="en_US" language="es_ES" table="AD_MODULE" version="">
+  <row id="A9A8BBC6E6F74E1F82E848E7E892137D" trl="N">
+    <value column="Description" isTrl="N" original="Customization to Enable Void button on the Purchase Order">Personalización para habilitar el botón Anular en la orden de compra</value>
+    <value column="Help" isTrl="N" original=""/>
+    <value column="License" isTrl="N" original="GNU General Public License 3.0">GNU General Public License 3.0</value>
+    <value column="Updateinfo" isTrl="N" original=""/>
+  </row>
+</compiereTrl>
