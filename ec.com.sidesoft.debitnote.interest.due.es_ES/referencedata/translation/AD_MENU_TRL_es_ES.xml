@@ -8,4 +8,12 @@
     <value column="Name" isTrl="Y" original="Interest Default and Outstanding Collection">Interés Mora y Cobranza Pendientes</value>
     <value column="Description" isTrl="N" original=""/>
   </row>
+  <row id="8B79ECB9A56D4FE3882A34A436B0C3A1" trl="Y">
+    <value column="Name" isTrl="Y" original="Initial Interest Calculation">Cálculo Inicial de Intereses</value>
+    <value column="Description" isTrl="N" original=""/>
+  </row>
+  <row id="F7C65E548CEB41BEB5537EB3A3EB62DA" trl="Y">
+    <value column="Name" isTrl="Y" original="Update Cut Off Date">Actualizar la Fecha de Corte</value>
+    <value column="Description" isTrl="N" original=""/>
+  </row>
 </compiereTrl>

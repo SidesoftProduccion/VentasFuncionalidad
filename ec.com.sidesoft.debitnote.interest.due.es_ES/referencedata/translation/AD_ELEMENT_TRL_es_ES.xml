@@ -160,6 +160,16 @@
     <value column="PO_Name" isTrl="N" original=""/>
     <value column="PO_PrintName" isTrl="N" original=""/>
   </row>
+  <row id="7D49CA6A00CB4DA58FD93B2A7453844B" trl="Y">
+    <value column="Name" isTrl="Y" original="Customer Collection Day">Día de Cobro del Cliente</value>
+    <value column="PrintName" isTrl="Y" original="Customer Collection Day">Día de Cobro del Cliente</value>
+    <value column="Description" isTrl="N" original=""/>
+    <value column="Help" isTrl="N" original=""/>
+    <value column="PO_Description" isTrl="N" original=""/>
+    <value column="PO_Help" isTrl="N" original=""/>
+    <value column="PO_Name" isTrl="N" original=""/>
+    <value column="PO_PrintName" isTrl="N" original=""/>
+  </row>
   <row id="88D3844334304EE794B96F5803A05E50" trl="Y">
     <value column="Name" isTrl="Y" original="Payment Method 2">Método de Pago 2</value>
     <value column="PrintName" isTrl="Y" original="Payment Method 2">Método de Pago 2</value>
@@ -183,6 +193,16 @@
   <row id="9152F8F8068C43E5A4C283FEED23366A" trl="Y">
     <value column="Name" isTrl="Y" original="Generate Payment">Generar Cobro</value>
     <value column="PrintName" isTrl="Y" original="Generate Payment">Generar Cobro</value>
+    <value column="Description" isTrl="N" original=""/>
+    <value column="Help" isTrl="N" original=""/>
+    <value column="PO_Description" isTrl="N" original=""/>
+    <value column="PO_Help" isTrl="N" original=""/>
+    <value column="PO_Name" isTrl="N" original=""/>
+    <value column="PO_PrintName" isTrl="N" original=""/>
+  </row>
+  <row id="92ED37F86C5146B2AEAFE4E4A4D5891B" trl="Y">
+    <value column="Name" isTrl="Y" original="Cutoff date">Fecha de Corte</value>
+    <value column="PrintName" isTrl="Y" original="Cutoff date">Fecha de Corte</value>
     <value column="Description" isTrl="N" original=""/>
     <value column="Help" isTrl="N" original=""/>
     <value column="PO_Description" isTrl="N" original=""/>

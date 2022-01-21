@@ -1,27 +1,44 @@
 <?xml version="1.0"?>
   <database name="FUNCTION SSDNID_CALCULATE_INTEREST">
-    <function name="SSDNID_CALCULATE_INTEREST" type="VARCHAR">
-      <parameter name="pinstanceid" type="VARCHAR" mode="in">
+    <function name="SSDNID_CALCULATE_INTEREST" type="NULL">
+      <parameter name="pinstance_id" type="VARCHAR" mode="in">
         <default/>
       </parameter>
-      <body><![CDATA[pInstance RECORD;
-	vMessageOK VARCHAR2(2000) := '';
-	vMessageError VARCHAR2(2000) := '';
+      <body><![CDATA[-- Logistice
+	v_ResultStr VARCHAR2(2000):='';
+	v_Message TEXT:=''; --OBTG:VARCHAR2--
+	-- Parameter
+	CurParameter RECORD;
 	vRecordID VARCHAR2(32);
+	-- Variables
 	vRecord RECORD;
 	vSetting RECORD;
 	vDaysLate NUMBER;
 	vInterestLatePayment NUMBER;
 	vCollectionExpenses NUMBER;
-	
 BEGIN
-
-	DBMS_OUTPUT.PUT_LINE( 'Updating PInstance - Processing ' || pInstanceID);
-	vMessageError := 'PInstanceNotFound';
-  AD_UPDATE_PINSTANCE(pInstanceID, NULL, 'Y', NULL, NULL);
+	-- Update AD_PInstance
+	DBMS_OUTPUT.PUT_LINE('Updating PInstance - Processing ' || PInstance_ID);
+	v_ResultStr:='PInstanceNotFound';
+	AD_UPDATE_PINSTANCE(PInstance_ID, NULL, 'Y', NULL, NULL);
 	
-	BEGIN
-	
+	BEGIN -- BODY
+    	-- Begin Get Parameters
+		v_ResultStr:='ReadingParameters';
+		FOR CurParameter IN (
+			SELECT i.Record_ID, p.ParameterName, p.P_String, p.P_Number, p.P_Date
+			FROM AD_PInstance i
+				JOIN AD_PInstance_Para p ON i.AD_PInstance_ID=p.AD_PInstance_ID
+			WHERE i.AD_PInstance_ID=PInstance_ID
+			ORDER BY p.SeqNo
+		) LOOP
+			vRecordID := CurParameter.Record_ID;
+		END LOOP;
+		DBMS_OUTPUT.PUT_LINE('	vRecordID=' || vRecordID);
+		-- Finish Get Parameter
+		
+		--<<BEGIN_PROCESS>>
+		
 		--Cargamos la configuracion para calculo de intereses
 		SELECT * INTO vSetting FROM ssdnid_calcinterestsetting WHERE isactive='Y' ORDER BY created DESC LIMIT 1;
 		IF vSetting.ssdnid_calcinterestsetting_id IS NULL THEN
@@ -33,12 +50,12 @@ BEGIN
 			FROM fin_payment_schedule AS ps
 				JOIN c_invoice AS i ON i.c_invoice_id=ps.c_invoice_id
 				JOIN c_doctype AS dt ON dt.c_doctype_id=i.c_doctypetarget_id
-			WHERE i.issotrx='Y' AND dt.em_sspics_isretail='Y' AND ps.outstandingamt>vSetting.minimumvalue
-				AND ps.duedate>vSetting.startdate AND ps.duedate::DATE<now()::DATE
-				AND now()::DATE-ps.duedate::DATE-vSetting.daysofgrace>0
+			WHERE i.issotrx='Y' AND ps.outstandingamt>vSetting.minimumvalue
+				AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)>vSetting.startdate AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE<now()::DATE
+				AND now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace>0
 		) LOOP
 			--Calculamos los dias de atraso
-			vDaysLate := (now()::DATE-vRecord.duedate::DATE-vSetting.daysofgrace)::NUMERIC;
+			vDaysLate := (now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC;
 			--Calculamos los intereses por mora
 			vInterestLatePayment := vRecord.outstandingamt * (vSetting.rate / 36000) * vDaysLate;
 			
@@ -66,21 +83,21 @@ BEGIN
 		/*
 		UPDATE fin_payment_schedule AS ps SET
 			em_ssdnid_interestlatepayment=(
-				ps.outstandingamt * (vSetting.rate / 36000) * (now()::DATE-ps.duedate::DATE-vSetting.daysofgrace)::NUMERIC
+				ps.outstandingamt * (vSetting.rate / 36000) * (now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC
 			)
 		FROM c_invoice AS i
 			JOIN c_doctype AS dt ON dt.c_doctype_id=i.c_doctypetarget_id
-		WHERE i.issotrx='Y' AND dt.em_sspics_isretail='Y' AND ps.outstandingamt>vSetting.minimumvalue
-			AND ps.duedate>vSetting.startdate AND ps.duedate::DATE<now()::DATE
-			AND now()::DATE-ps.duedate::DATE-vSetting.daysofgrace>0;
+		WHERE i.issotrx='Y' AND ps.outstandingamt>vSetting.minimumvalue
+			AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)>vSetting.startdate AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE<now()::DATE
+			AND now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace>0;
 		*/
 		
 		--Actualizamos los gastos de cobraza
 		/*
 		UPDATE fin_payment_schedule AS ps SET
 			em_ssdnid_collectionexpenses=CASE
-				WHEN (now()::DATE-ps.duedate::DATE-vSetting.daysofgrace)::NUMERIC <= vSetting.factor THEN
-					(now()::DATE-ps.duedate::DATE-vSetting.daysofgrace)::NUMERIC
+				WHEN (now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC <= vSetting.factor THEN
+					(now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC
 					* ((SELECT surchargevalue FROM ssdnid_tablesic AS tsic
 					WHERE ps.outstandingamt>=tsic.rangefrom AND ps.outstandingamt<=tsic.rangeto) / vSetting.factor)
 				ELSE
@@ -88,21 +105,24 @@ BEGIN
 			END
 		FROM c_invoice AS i
 			JOIN c_doctype AS dt ON dt.c_doctype_id=i.c_doctypetarget_id
-		WHERE i.issotrx='Y' AND dt.em_sspics_isretail='Y' AND ps.outstandingamt>vSetting.minimumvalue
-			AND ps.duedate>vSetting.startdate AND ps.duedate::DATE<now()::DATE
-			AND now()::DATE-ps.duedate::DATE-vSetting.daysofgrace>0 AND vSetting.factor>0;
+		WHERE i.issotrx='Y' AND ps.outstandingamt>vSetting.minimumvalue
+			AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)>vSetting.startdate AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE<now()::DATE
+			AND now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace>0 AND vSetting.factor>0;
 		*/
-
-		DBMS_OUTPUT.PUT_LINE( 'Updating PInstance - Finished ' || vMessageOK);
-	  AD_UPDATE_PINSTANCE(pInstanceID, NULL, 'N', 1, vMessageOK);
-		RETURN 'OK';
-	END;
-
-	EXCEPTION WHEN OTHERS THEN
-	vMessageError := '@ERROR=' || SQLERRM;
-	DBMS_OUTPUT.PUT_LINE( vMessageError);
- AD_UPDATE_PINSTANCE(pInstanceID, NULL, 'N', 0, vMessageError);
-	RETURN vMessageError;
+		
+		--<<FINISH_PROCESS>>
+		
+		-- Update AD_PInstance
+		DBMS_OUTPUT.PUT_LINE('Updating PInstance - Finished ' || v_Message);
+		AD_UPDATE_PINSTANCE(PInstance_ID, NULL, 'N', CASE WHEN v_Message = '' THEN 1 ELSE 2 END, v_Message);
+		RETURN;
+	END; -- BODY
+	EXCEPTION
+	WHEN OTHERS THEN
+	v_ResultStr:= '@ERROR='||SQLERRM;
+	DBMS_OUTPUT.PUT_LINE( v_ResultStr) ;
+ AD_UPDATE_PINSTANCE(PInstance_ID, NULL, 'N', 0, v_ResultStr) ;
+	RETURN;
 END SSDNID_CALCULATE_INTEREST
 ]]></body>
     </function>

@@ -1,0 +1,93 @@
+<?xml version="1.0"?>
+  <database name="FUNCTION SSDNID_INITIAL_INTEREST_CALC">
+    <function name="SSDNID_INITIAL_INTEREST_CALC" type="NULL">
+      <parameter name="pinstance_id" type="VARCHAR" mode="in">
+        <default/>
+      </parameter>
+      <body><![CDATA[-- Logistice
+	v_ResultStr VARCHAR2(2000):='';
+	v_Message TEXT:=''; --OBTG:VARCHAR2--
+	-- Parameter
+	CurParameter RECORD;
+	vRecordID VARCHAR2(32);
+	-- Variables
+	vRecord RECORD;
+	vSetting RECORD;
+BEGIN
+	-- Update AD_PInstance
+	DBMS_OUTPUT.PUT_LINE('Updating PInstance - Processing ' || PInstance_ID);
+	v_ResultStr:='PInstanceNotFound';
+	AD_UPDATE_PINSTANCE(PInstance_ID, NULL, 'Y', NULL, NULL);
+	
+	BEGIN -- BODY
+    	-- Begin Get Parameters
+		v_ResultStr:='ReadingParameters';
+		FOR CurParameter IN (
+			SELECT i.Record_ID, p.ParameterName, p.P_String, p.P_Number, p.P_Date
+			FROM AD_PInstance i
+				JOIN AD_PInstance_Para p ON i.AD_PInstance_ID=p.AD_PInstance_ID
+			WHERE i.AD_PInstance_ID=PInstance_ID
+			ORDER BY p.SeqNo
+		) LOOP
+			vRecordID := CurParameter.Record_ID;
+		END LOOP;
+		DBMS_OUTPUT.PUT_LINE('	vRecordID=' || vRecordID);
+		-- Finish Get Parameter
+		
+		--<<BEGIN_PROCESS>>
+		
+		--Cargamos la configuracion para calculo de intereses
+		SELECT * INTO vSetting FROM ssdnid_calcinterestsetting WHERE isactive='Y' ORDER BY created DESC LIMIT 1;
+		IF vSetting.ssdnid_calcinterestsetting_id IS NULL THEN
+			RAISE_APPLICATION_ERROR(-20000, 'No existe configuracion para calculo de intereses');
+		END IF;
+		
+		--Actualizamos los intereses por mora
+		UPDATE fin_payment_schedule AS ps SET
+			em_ssdnid_interestlatepayment=(
+				ps.outstandingamt * (vSetting.rate / 36000) * (NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC
+			)
+		FROM c_invoice AS i
+			JOIN c_doctype AS dt ON dt.c_doctype_id=i.c_doctypetarget_id
+		WHERE i.issotrx='Y'
+            AND ps.outstandingamt>vSetting.minimumvalue
+			AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE>=vSetting.startdate::DATE
+			AND NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace>0
+            AND ps.c_invoice_id=i.c_invoice_id;
+		
+		--Actualizamos los gastos de cobraza
+		UPDATE fin_payment_schedule AS ps SET
+			em_ssdnid_collectionexpenses=CASE
+				WHEN (NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC <= vSetting.factor THEN
+					(NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC
+					* ((SELECT surchargevalue FROM ssdnid_tablesic AS tsic
+					WHERE ps.outstandingamt>=tsic.rangefrom AND ps.outstandingamt<=tsic.rangeto) / vSetting.factor)
+				ELSE
+					vSetting.defaultsurchargevalue
+			END
+		FROM c_invoice AS i
+			JOIN c_doctype AS dt ON dt.c_doctype_id=i.c_doctypetarget_id
+		WHERE i.issotrx='Y'
+            AND ps.outstandingamt>vSetting.minimumvalue
+			AND pCOALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE>vSetting.startdate::DATE
+			AND NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace>0
+            AND vSetting.factor>0
+            AND ps.c_invoice_id=i.c_invoice_id;
+		
+		--<<FINISH_PROCESS>>
+		
+		-- Update AD_PInstance
+		DBMS_OUTPUT.PUT_LINE('Updating PInstance - Finished ' || v_Message);
+		AD_UPDATE_PINSTANCE(PInstance_ID, NULL, 'N', CASE WHEN v_Message = '' THEN 1 ELSE 2 END, v_Message);
+		RETURN;
+	END; -- BODY
+	EXCEPTION
+	WHEN OTHERS THEN
+	v_ResultStr:= '@ERROR='||SQLERRM;
+	DBMS_OUTPUT.PUT_LINE( v_ResultStr) ;
+ AD_UPDATE_PINSTANCE(PInstance_ID, NULL, 'N', 0, v_ResultStr) ;
+	RETURN;
+END SSDNID_INITIAL_INTEREST_CALC
+]]></body>
+    </function>
+  </database>

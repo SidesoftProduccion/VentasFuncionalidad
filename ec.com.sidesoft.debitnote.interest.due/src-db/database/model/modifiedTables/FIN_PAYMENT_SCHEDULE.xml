@@ -25,6 +25,10 @@
         <default/>
         <onCreateDefault/>
       </column>
+      <column name="EM_SSDNID_CUTOFF_DATE" primaryKey="false" required="false" type="TIMESTAMP" size="7" autoIncrement="false">
+        <default/>
+        <onCreateDefault/>
+      </column>
       <check name="EM_SSDNID_PG"><![CDATA[EM_SSDNID_GENERATEPAYMENT IN ('Y', 'N')]]></check>
     </table>
   </database>
