@@ -49,7 +49,6 @@ BEGIN
 			SELECT ps.*
 			FROM fin_payment_schedule AS ps
 				JOIN c_invoice AS i ON i.c_invoice_id=ps.c_invoice_id
-				JOIN c_doctype AS dt ON dt.c_doctype_id=i.c_doctypetarget_id
 			WHERE i.issotrx='Y' AND ps.outstandingamt>vSetting.minimumvalue
 				AND COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)>vSetting.startdate AND COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE<now()::DATE
 				AND now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE-vSetting.daysofgrace>0

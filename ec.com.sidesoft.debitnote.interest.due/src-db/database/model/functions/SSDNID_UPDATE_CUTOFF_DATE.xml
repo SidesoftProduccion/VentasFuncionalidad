@@ -44,7 +44,7 @@ BEGIN
 			FROM fin_payment_schedule ps
 				JOIN c_invoice i ON i.c_invoice_id=ps.c_invoice_id
 				JOIN c_bpartner bp ON bp.c_bpartner_id=i.c_bpartner_id
-			WHERE i.issotrx='Y' AND ps.em_ssdnid_cutoff_date IS NULL
+			WHERE i.issotrx='Y'
 		) LOOP
 			IF vRecord.em_ssdnid_pay_day IS NOT NULL THEN
 				vYear := EXTRACT(YEAR FROM vRecord.expecteddate);
