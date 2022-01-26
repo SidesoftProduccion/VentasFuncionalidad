@@ -20,7 +20,7 @@ BEGIN
 	-- Update AD_PInstance
 	DBMS_OUTPUT.PUT_LINE('Updating PInstance - Processing ' || PInstance_ID);
 	v_ResultStr:='PInstanceNotFound';
-	AD_UPDATE_PINSTANCE(PInstance_ID, NULL, 'Y', NULL, NULL);
+ AD_UPDATE_PINSTANCE(PInstance_ID, NULL, 'Y', NULL, NULL);
 	
 	BEGIN -- BODY
     	-- Begin Get Parameters
@@ -81,7 +81,7 @@ BEGIN
 		
 		-- Update AD_PInstance
 		DBMS_OUTPUT.PUT_LINE('Updating PInstance - Finished ' || v_Message);
-		AD_UPDATE_PINSTANCE(PInstance_ID, NULL, 'N', CASE WHEN v_Message = '' THEN 1 ELSE 2 END, v_Message);
+	 AD_UPDATE_PINSTANCE(PInstance_ID, NULL, 'N', CASE WHEN v_Message = '' THEN 1 ELSE 2 END, v_Message);
 		RETURN;
 	END; -- BODY
 	EXCEPTION

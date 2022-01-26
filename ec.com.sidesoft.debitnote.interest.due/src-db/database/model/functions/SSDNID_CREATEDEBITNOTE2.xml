@@ -35,7 +35,8 @@
 		vPaymentDetailID VARCHAR2(32);
 		vReferencedInvoiceID VARCHAR2(32);
 		vReferencedInvoice RECORD;
-		
+vLineBreak VARCHAR :='
+'; --OBTG:VARCHAR2--
 	BEGIN
 	
 		-- Obtenemos la organizacion
@@ -98,11 +99,8 @@
 			-- Factura referenciada
 			vReferencedInvoiceID := vRecord.c_invoice_id;
 			SELECT * INTO vReferencedInvoice FROM c_invoice WHERE c_invoice_id=vReferencedInvoiceID;
-			IF vResult = '' THEN
-				vResult := 'Factura #'||vReferencedInvoice.documentno||' | Cuota #'||COALESCE(vRecord.shareno::VARCHAR,'')||' | Valor: '||vRecord.amount;
-			ELSE
-				vResult := vResult||', Factura #'||vReferencedInvoice.documentno||' | Cuota #'||COALESCE(vRecord.shareno::VARCHAR,'')||' | Valor: '||vRecord.amount;
-			END IF;
+			
+			vResult := vResult||vLineBreak||'Factura: '||vReferencedInvoice.documentno||' - Fecha de Corte: '||vRecord.duedate::DATE::VARCHAR||' - Importe: '||vRecord.amount;
 		END LOOP;
 		
 		-- Obtenemos el tercero del pago
@@ -154,9 +152,7 @@
 				createfrom,
 				generateto,
 				copyfrom,
-				user1_id,
 				fin_paymentmethod_id,
-				c_costcenter_id,
 				calculate_promotions,
 				em_aprm_processinvoice,
 				em_scnr_invoice_id,
@@ -193,9 +189,7 @@
 				'N',
 				'N',
 				'N',
-				vOrg.em_ssopos_user1_id,
 				vPaymentMethodID,
-				vOrg.em_ssopos_c_costcenter_id,
 				'N',
 				'CO',
 				vReferencedInvoiceID,
@@ -210,9 +204,10 @@
 			) RETURNING * INTO vInvoice;
 
 			FOR vRecord IN (
-				SELECT *
-				FROM ssdnid_product
-				WHERE ssdnid_calcinterestsetting_id=vSetting.ssdnid_calcinterestsetting_id
+				SELECT p1.*, p2.c_uom_id
+				FROM ssdnid_product p1
+					JOIN m_product p2 ON p2.m_product_id=p1.m_product_id
+				WHERE p1.ssdnid_calcinterestsetting_id=vSetting.ssdnid_calcinterestsetting_id
 			) LOOP
 				IF vRecord.interest = 'IFLP' AND vInterestLatePayment > 0 THEN
 					INSERT INTO c_invoiceline (
@@ -239,7 +234,7 @@
 						vInvoice.c_invoice_id,
 						(SELECT COALESCE(MAX(line),0)+10 FROM c_invoiceline WHERE c_invoice_id=vInvoice.c_invoice_id),
 						vRecord.m_product_id,
-						'100',
+						vRecord.c_uom_id,
 						1,
 						vInterestLatePayment,
 						vInterestLatePayment,
@@ -271,7 +266,7 @@
 						vInvoice.c_invoice_id,
 						(SELECT COALESCE(MAX(line),0)+10 FROM c_invoiceline WHERE c_invoice_id=vInvoice.c_invoice_id),
 						vRecord.m_product_id,
-						'100',
+						vRecord.c_uom_id,
 						1,
 						vCollectionExpenses,
 						vCollectionExpenses,
@@ -310,7 +305,6 @@
 				status,
 				c_bpartner_id,
 				amount,
-				em_sspiv_annulment,
 				em_ssior_detailreport,
 				em_aprm_reconcile_payment,
 				em_aprm_executepayment,
@@ -332,7 +326,6 @@
 				'RPAP',
 				vBPartner.c_bpartner_id,
 				vInterestLatePayment+vCollectionExpenses,
-				'N',
 				'Y',
 				'N',
 				'N',
@@ -421,8 +414,7 @@
 					statementdate,
 					description,
 					c_bpartner_id,
-					em_aprm_processed,
-					em_ssccr_c_invoice_id
+					em_aprm_processed
 				) VALUES (
 					get_uuid(),
 					vPayment.ad_client_id,
@@ -441,8 +433,7 @@
 					now(),
 					'Factura Nº: '||vInvoice.documentno,
 					vPayment.c_bpartner_id,
-					'R',
-					vInvoice.c_invoice_id
+					'R'
 				);
 				
 				-- Actualizamos la cuenta financiera

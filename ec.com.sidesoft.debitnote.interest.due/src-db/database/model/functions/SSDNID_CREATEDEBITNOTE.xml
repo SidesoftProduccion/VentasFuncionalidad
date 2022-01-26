@@ -31,7 +31,8 @@
 		vadOrgID VARCHAR2(32);
 		vPaymentMethodID VARCHAR2(32);
 		vCreatePayment BOOLEAN := FALSE;
-		
+vLineBreak VARCHAR :='
+'; --OBTG:VARCHAR2--
 	BEGIN
 		-- Obtenemos el pago
 		SELECT * INTO vPayment FROM fin_payment WHERE fin_payment_id=vPaymentId;
@@ -111,12 +112,11 @@
 		
 		FOR vRecord IN (
 			SELECT psd.*,
-				ps.duedate,
+				ps.em_ssdnid_cutoff_date,
 				ps.amount,
 				ps.paidamt,
 				ps.c_currency_id,
 				now() AS lastpaymentdate,
-				ps.em_ssppi_shareno,
 				ps.em_ssdnid_interestlatepayment,
 				ps.em_ssdnid_tinterestlatepayment,
 				COALESCE(ps.em_ssdnid_collectionexpenses, 0) as em_ssdnid_collectionexpenses,
@@ -180,23 +180,19 @@
 					vRecord.c_invoice_id,
 					vRecord.dateinvoiced,
 					vRecord.fin_payment_schedule_invoice,
-					vRecord.duedate,
+					vRecord.em_ssdnid_cutoff_date,
 					vRecord.amount,
 					vRecord.paidamt,
 					vRecord.c_currency_id,
 					vRecord.lastpaymentdate,
-					vRecord.em_ssppi_shareno,
+					0,
 					vRecord.em_ssdnid_interestlatepayment,
 					vRecord.em_ssdnid_collectionexpenses,
 					vILP,
 					vCE
 				);			
 			ELSEIF (vILP > 0 OR vCE > 0) AND vGeneratePayment THEN
-				IF vResult = '' THEN
-					vResult := vResult||'Cuota#'||COALESCE(vRecord.em_ssppi_shareno::VARCHAR,'')||', Valor: '||vRecord.amount;
-				ELSE
-					vResult := ', '||vResult||'Cuota#'||vRecord.em_ssppi_shareno||', Valor: '||vRecord.amount;
-				END IF;
+				vResult := vResult||vLineBreak||'Fecha de Corte: '||vRecord.em_ssdnid_cutoff_date::DATE::VARCHAR||' - Importe: '||vRecord.amount;
 
 				vReferencedInvoiceID := vRecord.c_invoice_id;
 				vInterestLatePayment := vInterestLatePayment + vILP;
@@ -253,9 +249,7 @@
 				createfrom,
 				generateto,
 				copyfrom,
-				user1_id,
 				fin_paymentmethod_id,
-				c_costcenter_id,
 				calculate_promotions,
 				em_aprm_processinvoice,
 				em_scnr_invoice_id,
@@ -279,7 +273,7 @@
 				'N',
 				vDoctype.c_doctype_id,
 				vDoctype.c_doctype_id,
-				'Factura #'||vReferencedInvoice.documentno||' | '||vResult||' | Sucursal: '||vOrg.name,
+				'Factura: '||vReferencedInvoice.documentno||' - Sucursal: '||vOrg.name||vResult,
 				vPayment.paymentdate,
 				vPayment.paymentdate,
 				vBPartner.c_bpartner_id,
@@ -292,9 +286,7 @@
 				'N',
 				'N',
 				'N',
-				vOrg.em_ssopos_user1_id,
 				vPaymentMethodID,
-				vOrg.em_ssopos_c_costcenter_id,
 				'N',
 				'CO',
 				vReferencedInvoiceID,
@@ -309,9 +301,10 @@
 			) RETURNING * INTO vInvoice;
 
 			FOR vRecord IN (
-				SELECT *
-				FROM ssdnid_product
-				WHERE ssdnid_calcinterestsetting_id=vSetting.ssdnid_calcinterestsetting_id
+				SELECT p1.*, p2.c_uom_id
+				FROM ssdnid_product p1
+					JOIN m_product p2 ON p2.m_product_id=p1.m_product_id
+				WHERE p1.ssdnid_calcinterestsetting_id=vSetting.ssdnid_calcinterestsetting_id
 			) LOOP
 				IF vRecord.interest = 'IFLP' AND vInterestLatePayment > 0 THEN
 					INSERT INTO c_invoiceline (
@@ -338,7 +331,7 @@
 						vInvoice.c_invoice_id,
 						(SELECT COALESCE(MAX(line),0)+10 FROM c_invoiceline WHERE c_invoice_id=vInvoice.c_invoice_id),
 						vRecord.m_product_id,
-						'100',
+						vRecord.c_uom_id,
 						1,
 						vInterestLatePayment,
 						vInterestLatePayment,
@@ -370,7 +363,7 @@
 						vInvoice.c_invoice_id,
 						(SELECT COALESCE(MAX(line),0)+10 FROM c_invoiceline WHERE c_invoice_id=vInvoice.c_invoice_id),
 						vRecord.m_product_id,
-						'100',
+						vRecord.c_uom_id,
 						1,
 						vCollectionExpenses,
 						vCollectionExpenses,
@@ -418,7 +411,6 @@
 					status,
 					c_bpartner_id,
 					amount,
-					em_sspiv_annulment,
 					em_ssior_detailreport,
 					em_aprm_reconcile_payment,
 					em_aprm_executepayment,
@@ -440,7 +432,6 @@
 					'RPAP',
 					vBPartner.c_bpartner_id,
 					vInterestLatePayment+vCollectionExpenses,
-					'N',
 					'Y',
 					'N',
 					'N',
