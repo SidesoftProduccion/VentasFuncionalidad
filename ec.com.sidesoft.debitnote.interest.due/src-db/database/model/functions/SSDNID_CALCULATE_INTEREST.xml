@@ -51,11 +51,11 @@ BEGIN
 				JOIN c_invoice AS i ON i.c_invoice_id=ps.c_invoice_id
 				JOIN c_doctype AS dt ON dt.c_doctype_id=i.c_doctypetarget_id
 			WHERE i.issotrx='Y' AND ps.outstandingamt>vSetting.minimumvalue
-				AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)>vSetting.startdate AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE<now()::DATE
-				AND now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace>0
+				AND COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)>vSetting.startdate AND COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE<now()::DATE
+				AND now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE-vSetting.daysofgrace>0
 		) LOOP
 			--Calculamos los dias de atraso
-			vDaysLate := (now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC;
+			vDaysLate := (now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE-vSetting.daysofgrace)::NUMERIC;
 			--Calculamos los intereses por mora
 			vInterestLatePayment := vRecord.outstandingamt * (vSetting.rate / 36000) * vDaysLate;
 			
@@ -78,38 +78,6 @@ BEGIN
 				em_ssdnid_collectionexpenses=COALESCE(vRecord.em_ssdnid_collectionexpenses,0)+(vCollectionExpenses/vDaysLate)
 			WHERE fin_payment_schedule_id=vRecord.fin_payment_schedule_id;
 		END LOOP;
-
-		--Actualizamos los intereses por mora
-		/*
-		UPDATE fin_payment_schedule AS ps SET
-			em_ssdnid_interestlatepayment=(
-				ps.outstandingamt * (vSetting.rate / 36000) * (now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC
-			)
-		FROM c_invoice AS i
-			JOIN c_doctype AS dt ON dt.c_doctype_id=i.c_doctypetarget_id
-		WHERE i.issotrx='Y' AND ps.outstandingamt>vSetting.minimumvalue
-			AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)>vSetting.startdate AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE<now()::DATE
-			AND now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace>0;
-		*/
-		
-		--Actualizamos los gastos de cobraza
-		/*
-		UPDATE fin_payment_schedule AS ps SET
-			em_ssdnid_collectionexpenses=CASE
-				WHEN (now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC <= vSetting.factor THEN
-					(now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC
-					* ((SELECT surchargevalue FROM ssdnid_tablesic AS tsic
-					WHERE ps.outstandingamt>=tsic.rangefrom AND ps.outstandingamt<=tsic.rangeto) / vSetting.factor)
-				ELSE
-					vSetting.defaultsurchargevalue
-			END
-		FROM c_invoice AS i
-			JOIN c_doctype AS dt ON dt.c_doctype_id=i.c_doctypetarget_id
-		WHERE i.issotrx='Y' AND ps.outstandingamt>vSetting.minimumvalue
-			AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)>vSetting.startdate AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE<now()::DATE
-			AND now()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace>0 AND vSetting.factor>0;
-		*/
-		
 		--<<FINISH_PROCESS>>
 		
 		-- Update AD_PInstance

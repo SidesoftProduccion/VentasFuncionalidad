@@ -45,21 +45,21 @@ BEGIN
 		--Actualizamos los intereses por mora
 		UPDATE fin_payment_schedule AS ps SET
 			em_ssdnid_interestlatepayment=(
-				ps.outstandingamt * (vSetting.rate / 36000) * (NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC
+				ps.outstandingamt * (vSetting.rate / 36000) * (NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE-vSetting.daysofgrace)::NUMERIC
 			)
 		FROM c_invoice AS i
 			JOIN c_doctype AS dt ON dt.c_doctype_id=i.c_doctypetarget_id
 		WHERE i.issotrx='Y'
             AND ps.outstandingamt>vSetting.minimumvalue
-			AND COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE>=vSetting.startdate::DATE
-			AND NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace>0
+			AND COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE>=vSetting.startdate::DATE
+			AND NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE-vSetting.daysofgrace>0
             AND ps.c_invoice_id=i.c_invoice_id;
 		
 		--Actualizamos los gastos de cobraza
 		UPDATE fin_payment_schedule AS ps SET
 			em_ssdnid_collectionexpenses=CASE
-				WHEN (NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC <= vSetting.factor THEN
-					(NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace)::NUMERIC
+				WHEN (NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE-vSetting.daysofgrace)::NUMERIC <= vSetting.factor THEN
+					(NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE-vSetting.daysofgrace)::NUMERIC
 					* ((SELECT surchargevalue FROM ssdnid_tablesic AS tsic
 					WHERE ps.outstandingamt>=tsic.rangefrom AND ps.outstandingamt<=tsic.rangeto) / vSetting.factor)
 				ELSE
@@ -69,8 +69,8 @@ BEGIN
 			JOIN c_doctype AS dt ON dt.c_doctype_id=i.c_doctypetarget_id
 		WHERE i.issotrx='Y'
             AND ps.outstandingamt>vSetting.minimumvalue
-			AND pCOALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE>vSetting.startdate::DATE
-			AND NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.duedate)::DATE-vSetting.daysofgrace>0
+			AND pCOALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE>vSetting.startdate::DATE
+			AND NOW()::DATE-COALESCE(ps.em_ssdnid_cutoff_date,ps.expecteddate)::DATE-vSetting.daysofgrace>0
             AND vSetting.factor>0
             AND ps.c_invoice_id=i.c_invoice_id;
 		

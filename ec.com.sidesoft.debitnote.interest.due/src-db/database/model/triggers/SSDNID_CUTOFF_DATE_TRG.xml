@@ -3,8 +3,8 @@
     <trigger name="SSDNID_CUTOFF_DATE_TRG" table="FIN_PAYMENT_SCHEDULE" fires="before" insert="true" update="true" delete="false" foreach="row">
       <body><![CDATA[	vYear NUMBER;
 	vMonth NUMBER;
-	vDay NUMBER;
 	vLastDayMonth NUMBER;
+	vDateInvoiced DATE;
 	vPayDay NUMBER;
 	vCutoffDate VARCHAR2(10);
 BEGIN
@@ -18,23 +18,15 @@ BEGIN
 	END IF;
 
 	IF TG_OP IN ('INSERT','UPDATE') THEN
-		SELECT bp.em_ssdnid_pay_day INTO vPayDay
+		SELECT bp.em_ssdnid_pay_day, dateinvoiced INTO vPayDay, vDateInvoiced
 		FROM c_invoice i
 			JOIN c_bpartner bp ON bp.c_bpartner_id=i.c_bpartner_id
 		WHERE i.c_invoice_id=:NEW.c_invoice_id;
 		
 		IF vPayDay IS NOT NULL THEN
-			vYear := EXTRACT(YEAR FROM :NEW.duedate);
-			vMonth := EXTRACT(MONTH FROM :NEW.duedate);
-			vDay := EXTRACT(DAY FROM :NEW.duedate);
-			vLastDayMonth := EXTRACT(DAY FROM LAST_DAY(:NEW.duedate));
-			
-			IF vDay > vPayDay AND vMonth < 12 THEN
-				vMonth := vMonth + 1;
-			ELSEIF vDay > vPayDay THEN
-				vMonth := 1;
-				vYear := vYear + 1;
-			END IF;
+			vYear := EXTRACT(YEAR FROM :NEW.expecteddate);
+			vMonth := EXTRACT(MONTH FROM :NEW.expecteddate);
+			vLastDayMonth := EXTRACT(DAY FROM LAST_DAY(:NEW.expecteddate));
 			
 			vCutoffDate := vYear||'-'||vMonth||'-';
 			
@@ -43,8 +35,14 @@ BEGIN
 			ELSE
 				vCutoffDate := vCutoffDate||vPayDay;
 			END IF;
-
+			
 			:NEW.em_ssdnid_cutoff_date := vCutoffDate::TIMESTAMP;
+			
+			IF :NEW.em_ssdnid_cutoff_date::DATE < vDateInvoiced::DATE THEN
+				:NEW.em_ssdnid_cutoff_date := :NEW.em_ssdnid_cutoff_date + interval '1 month';
+			END IF;
+		ELSE
+			:NEW.em_ssdnid_cutoff_date := :NEW.expecteddate;
 		END IF;
 	END IF;
   

@@ -14,9 +14,7 @@
 	vRecord RECORD;
 	vYear NUMBER;
 	vMonth NUMBER;
-	vDay NUMBER;
 	vLastDayMonth NUMBER;
-	vPayDay NUMBER;
 	vCutoffDate VARCHAR2(10);
 BEGIN
 	-- Update AD_PInstance
@@ -42,35 +40,32 @@ BEGIN
 		--<<BEGIN_PROCESS>>
 		
 		FOR vRecord IN (
-			SELECT ps.*, bp.em_ssdnid_pay_day
+			SELECT ps.*, bp.em_ssdnid_pay_day, i.dateinvoiced
 			FROM fin_payment_schedule ps
 				JOIN c_invoice i ON i.c_invoice_id=ps.c_invoice_id
-				JOIN c_doctype dt ON dt.c_doctype_id=i.c_doctypetarget_id
 				JOIN c_bpartner bp ON bp.c_bpartner_id=i.c_bpartner_id
-			WHERE i.issotrx='Y' AND bp.em_ssdnid_pay_day IS NOT NULL
-				AND ps.em_ssdnid_cutoff_date IS NULL
+			WHERE i.issotrx='Y' AND ps.em_ssdnid_cutoff_date IS NULL
 		) LOOP
-			vYear := EXTRACT(YEAR FROM ps.duedate);
-			vMonth := EXTRACT(MONTH FROM ps.duedate);
-			vDay := EXTRACT(DAY FROM ps.duedate);
-			vLastDayMonth := EXTRACT(DAY FROM LAST_DAY(ps.duedate));
-			
-			IF vDay > vPayDay AND vMonth < 12 THEN
-				vMonth := vMonth + 1;
-			ELSEIF vDay > vPayDay THEN
-				vMonth := 1;
-				vYear := vYear + 1;
-			END IF;
-			
-			vCutoffDate := vYear||'-'||vMonth||'-';
-			
-			IF vPayDay > vLastDayMonth THEN
-				vCutoffDate := vCutoffDate||vLastDayMonth;
-			ELSE
-				vCutoffDate := vCutoffDate||vPayDay;
-			END IF;
+			IF vRecord.em_ssdnid_pay_day IS NOT NULL THEN
+				vYear := EXTRACT(YEAR FROM vRecord.expecteddate);
+				vMonth := EXTRACT(MONTH FROM vRecord.expecteddate);
+				vLastDayMonth := EXTRACT(DAY FROM LAST_DAY(vRecord.expecteddate));
 
-			UPDATE fin_payment_schedule SET em_ssdnid_cutoff_date=vCutoffDate::TIMESTAMP WHERE fin_payment_schedule_id=vRecord.fin_payment_schedule_id;
+				vCutoffDate := vYear||'-'||vMonth||'-';
+
+				IF vRecord.em_ssdnid_pay_day > vLastDayMonth THEN
+					vCutoffDate := vCutoffDate||vLastDayMonth;
+				ELSE
+					vCutoffDate := vCutoffDate||vRecord.em_ssdnid_pay_day;
+				END IF;
+
+				UPDATE fin_payment_schedule SET em_ssdnid_cutoff_date=CASE WHEN vCutoffDate::DATE < vRecord.dateinvoiced::DATE
+					THEN  vCutoffDate::TIMESTAMP + interval '1 month'
+					ELSE vCutoffDate::TIMESTAMP END
+				WHERE fin_payment_schedule_id=vRecord.fin_payment_schedule_id;
+			ELSE
+				UPDATE fin_payment_schedule SET em_ssdnid_cutoff_date=vRecord.expecteddate WHERE fin_payment_schedule_id=vRecord.fin_payment_schedule_id;
+			END IF;
 		END LOOP;
 		
 		--<<FINISH_PROCESS>>
