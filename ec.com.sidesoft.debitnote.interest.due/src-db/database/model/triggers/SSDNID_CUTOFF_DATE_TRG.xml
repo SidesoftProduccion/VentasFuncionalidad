@@ -49,7 +49,7 @@ BEGIN
 				vDescription := vLineBreak||'Cuotas:';
 			END IF;
 			
-			vDescription := vDescription||vLineBreak||'Fecha de Corte: '||:NEW.em_ssdnid_cutoff_date::DATE::VARCHAR||' - Importe: '||:NEW.amount;
+			vDescription := vDescription||vLineBreak||'Fecha de Pago: '||:NEW.em_ssdnid_cutoff_date::DATE::VARCHAR||' - Importe: '||:NEW.amount;
 			UPDATE c_invoice SET em_eei_description=vDescription WHERE c_invoice_id=:NEW.c_invoice_id;
 		ELSE
 			:NEW.em_ssdnid_cutoff_date := :NEW.expecteddate;
