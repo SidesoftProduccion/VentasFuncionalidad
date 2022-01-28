@@ -111,7 +111,7 @@ vLineBreak VARCHAR :='
 		END IF;
 		
 		FOR vRecord IN (
-			SELECT psd.*,
+			SELECT ps.fin_payment_schedule_id,
 				ps.em_ssdnid_cutoff_date,
 				ps.amount,
 				ps.paidamt,
@@ -131,6 +131,7 @@ vLineBreak VARCHAR :='
 				JOIN c_invoice AS i ON i.c_invoice_id=ps.c_invoice_id
 			WHERE pd.fin_payment_id=vPayment.fin_payment_id AND i.issotrx='Y'
 				AND (ps.em_ssdnid_interestlatepayment>0 OR COALESCE(ps.em_ssdnid_collectionexpenses, 0)>0)
+			GROUP BY ps.fin_payment_schedule_id, i.c_invoice_id
 		) LOOP
 			
 			vILP := CASE
@@ -203,10 +204,10 @@ vLineBreak VARCHAR :='
 			END IF;
 			
 		END LOOP;
-		
+			
 		-- Factura referenciada
 		SELECT * INTO vReferencedInvoice FROM c_invoice WHERE c_invoice_id=vReferencedInvoiceID;
-		
+
 		-- Validamos si existen intereses para facturar
 		IF (vInterestLatePayment > 0 OR vCollectionExpenses > 0) AND vGeneratePayment THEN
 			--Validamos si los valores acordados son iguales a los reales
