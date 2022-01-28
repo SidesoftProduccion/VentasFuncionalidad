@@ -8,41 +8,48 @@ OB.SSDNID = {
 
     OB.RemoteCallManager.call('ec.com.sidesoft.debitnote.interest.due.ad_actions.AddPaymentsActionHandler', {
       event: params.event,
-      paymentScheduleDetailId: params.paymentScheduleDetailId,
+      invoiceNo: params.invoiceNo,
+      expectedDate: params.expectedDate,
       value: params.value,
     }, {}, callback);
   },
 };
 
 OB.SSDNID.AddPayments.onChangeInterestLatePayment = function (item, view, form, grid) {
-  var paymentScheduleDetailId = item.record.id;
+  var invoiceNo = item.record.invoiceNo;
+  var expectedDate = item.record.expectedDate;
   var field = grid.getFieldByColumnName('EM_Ssdnid_TInterestLatePayment');
   var value = grid.getEditedCell(item.rowNum, field);
   OB.SSDNID.execute({
     event: 'onChangeInterestLatePayment',
-    paymentScheduleDetailId: paymentScheduleDetailId,
+    invoiceNo: invoiceNo,
+    expectedDate: expectedDate,
     value: value,
   }, view);
 };
 
 OB.SSDNID.AddPayments.onChangeCollectionExpenses = function (item, view, form, grid) {
-  var paymentScheduleDetailId = item.record.id;
+  var invoiceNo = item.record.invoiceNo;
+  var expectedDate = item.record.expectedDate;
   var field = grid.getFieldByColumnName('EM_Ssdnid_TCollectionExpenses');
   var value = grid.getEditedCell(item.rowNum, field);
   OB.SSDNID.execute({
     event: 'onChangeCollectionExpenses',
-    paymentScheduleDetailId: paymentScheduleDetailId,
+    invoiceNo: invoiceNo,
+    expectedDate: expectedDate,
     value: value,
   }, view);
 };
 
 OB.SSDNID.AddPayments.onChangeGeneratePayment = function (item, view, form, grid) {
-  var paymentScheduleDetailId = item.record.id;
+  var invoiceNo = item.record.invoiceNo;
+  var expectedDate = item.record.expectedDate;
   var field = grid.getFieldByColumnName('EM_Ssdnid_GeneratePayment');
   var value = grid.getEditedCell(item.rowNum, field);
   OB.SSDNID.execute({
     event: 'onChangeGeneratePayment',
-    paymentScheduleDetailId: paymentScheduleDetailId,
+    invoiceNo: invoiceNo,
+    expectedDate: expectedDate,
     value: value,
   }, view);
 };

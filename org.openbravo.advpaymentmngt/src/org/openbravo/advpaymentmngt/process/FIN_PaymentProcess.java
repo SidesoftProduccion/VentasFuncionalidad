@@ -99,6 +99,7 @@ public class FIN_PaymentProcess implements org.openbravo.scheduling.Process {
       /* RARC BEGIN */
       String result = createDebitNote(recordID);
       System.out.println(result);
+      log4j.info(result);
       /* RARC END */
 
       bundle.setResult(msg);
