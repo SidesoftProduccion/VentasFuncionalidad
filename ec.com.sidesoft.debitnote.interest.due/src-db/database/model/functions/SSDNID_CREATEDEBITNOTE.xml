@@ -180,7 +180,7 @@ vLineBreak VARCHAR :='
 					vPayment.c_bpartner_id,
 					vRecord.c_invoice_id,
 					vRecord.dateinvoiced,
-					vRecord.fin_payment_schedule_invoice,
+					vRecord.fin_payment_schedule_id,
 					vRecord.em_ssdnid_cutoff_date,
 					vRecord.amount,
 					vRecord.paidamt,
