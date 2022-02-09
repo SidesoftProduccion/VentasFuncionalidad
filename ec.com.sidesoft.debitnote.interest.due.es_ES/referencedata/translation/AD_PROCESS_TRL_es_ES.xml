@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<compiereTrl baseLanguage="en_US" language="es_ES" table="AD_PROCESS" version="">
+  <row id="1F4A24CB31C74211850B95A9023E4B1E" trl="Y">
+    <value column="Name" isTrl="Y" original="Update Cut Off Date">Actualizar la Fecha de Corte</value>
+    <value column="Description" isTrl="N" original=""/>
+    <value column="Help" isTrl="N" original=""/>
+  </row>
+  <row id="8FB5EABA2FC04B3792B73D1CB33F668B" trl="Y">
+    <value column="Name" isTrl="Y" original="Calculate Interest">Calcular Intereses</value>
+    <value column="Description" isTrl="N" original=""/>
+    <value column="Help" isTrl="N" original=""/>
+  </row>
+  <row id="AB993406809346FB93AD9B16507BA4EA" trl="Y">
+    <value column="Name" isTrl="Y" original="Initial Interest Calculation">Cálculo Inicial de Intereses</value>
+    <value column="Description" isTrl="N" original=""/>
+    <value column="Help" isTrl="N" original=""/>
+  </row>
+</compiereTrl>
