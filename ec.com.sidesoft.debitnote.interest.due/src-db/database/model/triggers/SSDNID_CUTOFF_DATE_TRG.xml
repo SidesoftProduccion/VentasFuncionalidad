@@ -44,16 +44,16 @@ BEGIN
 			IF :NEW.em_ssdnid_cutoff_date::DATE < vDateInvoiced::DATE THEN
 				:NEW.em_ssdnid_cutoff_date := :NEW.em_ssdnid_cutoff_date + interval '1 month';
 			END IF;
-			
-			IF COALESCE(vDescription,'') = '' THEN
-				vDescription := vLineBreak||'Cuotas:';
-			END IF;
-			
-			vDescription := vDescription||vLineBreak||'Fecha de Pago: '||:NEW.em_ssdnid_cutoff_date::DATE::VARCHAR||' - Importe: '||:NEW.amount;
-			UPDATE c_invoice SET em_eei_description=vDescription WHERE c_invoice_id=:NEW.c_invoice_id;
 		ELSE
 			:NEW.em_ssdnid_cutoff_date := :NEW.expecteddate;
 		END IF;
+		
+		IF COALESCE(vDescription,'') = '' THEN
+			vDescription := vLineBreak||'Cuotas:';
+		END IF;
+
+		vDescription := vDescription||vLineBreak||'Fecha de Pago: '||:NEW.em_ssdnid_cutoff_date::DATE::VARCHAR||' - Importe: '||:NEW.amount;
+		UPDATE c_invoice SET em_eei_description=vDescription WHERE c_invoice_id=:NEW.c_invoice_id;
 	ELSE
 		UPDATE c_invoice SET em_eei_description=null WHERE c_invoice_id=:OLD.c_invoice_id;
 	END IF;
