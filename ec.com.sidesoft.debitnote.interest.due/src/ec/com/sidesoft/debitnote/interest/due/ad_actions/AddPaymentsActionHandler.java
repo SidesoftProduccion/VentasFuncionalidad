@@ -23,8 +23,6 @@ import org.openbravo.model.financialmgmt.payment.FIN_PaymentSchedule;
 import org.openbravo.model.financialmgmt.payment.FIN_PaymentScheduleDetail;
 import org.openbravo.service.db.DalConnectionProvider;
 
-import ec.com.sidesoft.crm.visitplan.Scrvro_VendorRouteConfig;
-
 public class AddPaymentsActionHandler extends BaseActionHandler {
   private final Logger log4j = Logger.getLogger(AddPaymentsActionHandler.class);
 
