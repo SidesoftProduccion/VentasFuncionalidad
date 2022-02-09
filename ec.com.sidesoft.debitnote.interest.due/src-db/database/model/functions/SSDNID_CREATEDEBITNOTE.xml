@@ -1,0 +1,566 @@
+<?xml version="1.0"?>
+  <database name="FUNCTION SSDNID_CREATEDEBITNOTE">
+    <function name="SSDNID_CREATEDEBITNOTE" type="VARCHAR">
+      <parameter name="vpaymentid" type="VARCHAR" mode="in">
+        <default/>
+      </parameter>
+      <body><![CDATA[vRecordID VARCHAR2(32);
+		vRecord RECORD;
+		vPayment RECORD;
+		vOrg RECORD;
+		vBPartner RECORD;
+		vBPartnerLocationID VARCHAR2(32);
+		vSetting RECORD;
+		vPaymentSetting RECORD;
+		vCheck NUMBER;
+		vDoctype RECORD;
+		vInterestLatePayment NUMBER:= 0;
+		vILP NUMBER:= 0;
+		vTotalInterestLatePayment NUMBER:= 0;
+		vCollectionExpenses NUMBER:= 0;
+		vCE NUMBER:= 0;
+		vTotalCollectionExpenses NUMBER:= 0;
+		vGeneratePayment BOOLEAN := FALSE;
+		vDocumentno VARCHAR2(32);
+		vReferencedInvoiceID VARCHAR2(32);
+		vReferencedInvoice RECORD;
+		vInvoice RECORD;
+		vResult VARCHAR2(2000) := '';
+		vPaymentSchedule RECORD;
+		vPaymentDetailID VARCHAR2(32);
+		vadOrgID VARCHAR2(32);
+		vPaymentMethodID VARCHAR2(32);
+		vCreatePayment BOOLEAN := FALSE;
+vLineBreak VARCHAR :='
+'; --OBTG:VARCHAR2--
+	BEGIN
+		-- Obtenemos el pago
+		SELECT * INTO vPayment FROM fin_payment WHERE fin_payment_id=vPaymentId;
+		IF vPayment.fin_payment_id IS NULL THEN
+			RAISE_APPLICATION_ERROR(-20000, 'Pago no encontrado');
+		END IF;
+		
+		-- Validamos si debe continuar el proceso
+		SELECT COUNT(psd.*) INTO vCheck
+		FROM fin_payment_scheduledetail AS psd
+			JOIN fin_payment_schedule AS ps ON ps.fin_payment_schedule_id=psd.fin_payment_schedule_invoice
+			JOIN fin_payment_detail AS pd ON pd.fin_payment_detail_id=psd.fin_payment_detail_id
+			JOIN fin_payment AS p ON p.fin_payment_id=pd.fin_payment_id
+			JOIN c_invoice AS i ON i.c_invoice_id=ps.c_invoice_id
+		WHERE pd.fin_payment_id=vPayment.fin_payment_id AND i.issotrx='Y'
+			AND (ps.em_ssdnid_interestlatepayment>0 OR ps.em_ssdnid_collectionexpenses>0);
+		IF vCheck = 0 THEN
+			RETURN 'OK=No existen intereses';
+		END IF;
+		
+		-- Verificamos si algun registro tiene el check de generar pago
+		SELECT COUNT(ps.em_ssdnid_generatepayment) > 0 INTO vGeneratePayment
+		FROM fin_payment_scheduledetail AS psd
+			JOIN fin_payment_schedule AS ps ON ps.fin_payment_schedule_id=psd.fin_payment_schedule_invoice
+			JOIN fin_payment_detail AS pd ON pd.fin_payment_detail_id=psd.fin_payment_detail_id
+			JOIN fin_payment AS p ON p.fin_payment_id=pd.fin_payment_id
+			JOIN c_invoice AS i ON i.c_invoice_id=ps.c_invoice_id
+		WHERE pd.fin_payment_id=vPayment.fin_payment_id AND i.issotrx='Y'
+			AND (ps.em_ssdnid_interestlatepayment>0 OR ps.em_ssdnid_collectionexpenses>0)
+			AND ps.em_ssdnid_generatepayment = 'Y';
+		
+		-- Obtenemos la organizacion del pago
+		SELECT * INTO vOrg FROM ad_org WHERE ad_org_id=vPayment.ad_org_id;
+		
+		-- Obtenemos el tercero del pago
+		SELECT * INTO vBPartner FROM c_bpartner WHERE c_bpartner_id=vPayment.c_bpartner_id;
+		
+		-- Obtenemos la direccion del tercero
+		SELECT c_bpartner_location_id INTO vBPartnerLocationID FROM c_bpartner_location WHERE c_bpartner_id=vPayment.c_bpartner_id;
+		
+		-- Obtenemos las configuracion de intereses de mora y gastos de cobranza
+		SELECT * INTO vSetting FROM ssdnid_calcinterestsetting WHERE isactive='Y' AND ad_org_id IN (vOrg.ad_org_id,'0')
+		ORDER BY ad_org_id DESC LIMIT 1;
+		IF vSetting.ssdnid_calcinterestsetting_id IS NULL THEN
+			RAISE_APPLICATION_ERROR(-20000, 'No existe configuracion para intereses de mora y gastos de cobranza');
+		END IF;
+		
+		-- Obtenemos las configuracion para crear cobros
+		SELECT * INTO vPaymentSetting FROM ssdnid_payment WHERE isactive='Y' AND ad_org_id IN (vOrg.ad_org_id,'0')
+		ORDER BY ad_org_id DESC LIMIT 1;
+		IF vPaymentSetting.ssdnid_payment_id IS NULL THEN
+			RAISE_APPLICATION_ERROR(-20000, 'No existe configuracion para crear cobros');
+		END IF;
+		
+		-- Consultamos si existen productos configurados
+		SELECT COUNT(*) INTO vCheck FROM ssdnid_product WHERE ssdnid_calcinterestsetting_id=vSetting.ssdnid_calcinterestsetting_id;
+		IF vCheck = 0 THEN
+			RAISE_APPLICATION_ERROR(-20000, 'No existe configuracion de productos para intereses de mora y gastos de cobranza');
+		END IF;
+		
+		--Consultamos el tipo de documento para intereses de mora y gastos de cobranza
+		Select em_ssdnid_c_doctype_id as c_doctype_id, em_ssdnid_interestdebitnotedoc, ad_org_id
+			INTO vDoctype 
+		From c_doctype 
+		Where c_doctype_id = vPayment.c_doctype_id;
+		
+		If (COALESCE(vDoctype.em_ssdnid_interestdebitnotedoc, 'N') = 'N' or vDoctype.c_doctype_id is null) Then
+			SELECT * INTO vDoctype FROM c_doctype WHERE ad_org_id IN (vOrg.ad_org_id,'0') AND em_ssdnid_interestdebitnote='Y'
+			ORDER BY ad_org_id DESC LIMIT 1;
+		ELSE
+			vadOrgID :=  (Select ad_org_id From c_doctype Where c_doctype_id = vDoctype.c_doctype_id);
+		End IF;
+		
+		IF vDoctype.c_doctype_id IS NULL THEN
+			RAISE_APPLICATION_ERROR(-20000, 'No existe tipo de documento para intereses de mora y gastos de cobranza');
+		END IF;
+		
+		FOR vRecord IN (
+			SELECT ps.fin_payment_schedule_id,
+				ps.em_ssdnid_cutoff_date,
+				ps.amount,
+				ps.paidamt,
+				ps.c_currency_id,
+				now() AS lastpaymentdate,
+				ps.em_ssdnid_interestlatepayment,
+				ps.em_ssdnid_tinterestlatepayment,
+				COALESCE(ps.em_ssdnid_collectionexpenses, 0) as em_ssdnid_collectionexpenses,
+				ps.em_ssdnid_tcollectionexpenses,
+				ps.em_ssdnid_generatepayment,
+				i.c_invoice_id,
+				i.dateinvoiced
+			FROM fin_payment_scheduledetail AS psd
+				JOIN fin_payment_schedule AS ps ON ps.fin_payment_schedule_id=psd.fin_payment_schedule_invoice
+				JOIN fin_payment_detail AS pd ON pd.fin_payment_detail_id=psd.fin_payment_detail_id
+				JOIN fin_payment AS p ON p.fin_payment_id=pd.fin_payment_id
+				JOIN c_invoice AS i ON i.c_invoice_id=ps.c_invoice_id
+			WHERE pd.fin_payment_id=vPayment.fin_payment_id AND i.issotrx='Y'
+				AND (ps.em_ssdnid_interestlatepayment>0 OR COALESCE(ps.em_ssdnid_collectionexpenses, 0)>0)
+			GROUP BY ps.fin_payment_schedule_id, i.c_invoice_id
+		) LOOP
+			
+			vILP := CASE
+					WHEN COALESCE(vRecord.em_ssdnid_tinterestlatepayment,0) = 0 THEN
+						vRecord.em_ssdnid_interestlatepayment
+					ELSE vRecord.em_ssdnid_tinterestlatepayment
+				END;
+			vCE := CASE
+					WHEN COALESCE(vRecord.em_ssdnid_tcollectionexpenses,0) = 0 THEN
+						vRecord.em_ssdnid_collectionexpenses
+					ELSE vRecord.em_ssdnid_tcollectionexpenses
+				END;
+			
+			--Si la cuota es pagada totalmente, tiene intereses y no se genera el cobro
+			IF
+				vRecord.amount = vRecord.paidamt
+				AND (vRecord.em_ssdnid_interestlatepayment > 0 OR vRecord.em_ssdnid_collectionexpenses > 0)
+				AND vRecord.em_ssdnid_generatepayment = 'N'
+			THEN
+				INSERT INTO ssdnid_pendinginterest (
+					ssdnid_pendinginterest_id,
+					ad_org_id,
+					ad_client_id,
+					createdby,
+					updatedby,
+					c_bpartner_id,
+					c_invoice_id,
+					dateinvoiced,
+					fin_payment_schedule_id,
+					duedate,
+					amount,
+					paidamt,
+					c_currency_id,
+					lastpaymentdate,
+					shareno,
+					interestlatepayment,
+					collectionexpenses,
+					tinterestlatepayment,
+					tcollectionexpenses
+				) VALUES (
+					get_uuid(),
+					COALESCE(vadOrgID, vPayment.ad_org_id),
+					vPayment.ad_client_id,
+					vPayment.createdby,
+					vPayment.updatedby,
+					vPayment.c_bpartner_id,
+					vRecord.c_invoice_id,
+					vRecord.dateinvoiced,
+					vRecord.fin_payment_schedule_id,
+					vRecord.em_ssdnid_cutoff_date,
+					vRecord.amount,
+					vRecord.paidamt,
+					vRecord.c_currency_id,
+					vRecord.lastpaymentdate,
+					0,
+					vRecord.em_ssdnid_interestlatepayment,
+					vRecord.em_ssdnid_collectionexpenses,
+					vILP,
+					vCE
+				);			
+			ELSEIF (vILP > 0 OR vCE > 0) AND vGeneratePayment THEN
+				vResult := vResult||vLineBreak||'Fecha de Corte: '||vRecord.em_ssdnid_cutoff_date::DATE::VARCHAR||' - Importe: '||vRecord.amount;
+
+				vReferencedInvoiceID := vRecord.c_invoice_id;
+				vInterestLatePayment := vInterestLatePayment + vILP;
+				vTotalInterestLatePayment := vTotalInterestLatePayment + COALESCE(vRecord.em_ssdnid_interestlatepayment,0);
+				vCollectionExpenses := vCollectionExpenses + vCE;
+				vTotalCollectionExpenses := vTotalCollectionExpenses + COALESCE(vRecord.em_ssdnid_collectionexpenses,0);
+
+			END IF;
+			
+		END LOOP;
+			
+		-- Factura referenciada
+		SELECT * INTO vReferencedInvoice FROM c_invoice WHERE c_invoice_id=vReferencedInvoiceID;
+
+		-- Validamos si existen intereses para facturar
+		IF (vInterestLatePayment > 0 OR vCollectionExpenses > 0) AND vGeneratePayment THEN
+			--Validamos si los valores acordados son iguales a los reales
+			IF
+				vInterestLatePayment = vTotalInterestLatePayment
+				AND vCollectionExpenses = vTotalCollectionExpenses
+			THEN
+				vPaymentMethodID := vSetting.fin_paymentmethod_id;
+			ELSE
+				vPaymentMethodID := vSetting.fin_paymentmethod2_id;
+				vCreatePayment := TRUE;
+			END IF;
+		
+			-- Numero de documento para la factura
+			ad_sequence_doctype(vDoctype.c_doctype_id, vPayment.ad_client_id, 'Y', vDocumentno);
+			
+			-- Creamos la factura
+			INSERT INTO c_invoice (
+				c_invoice_id,
+				ad_client_id,
+				ad_org_id,
+				createdby,
+				updatedby,
+				documentno,
+				docstatus,
+				docaction,
+				processing,
+				c_doctype_id,
+				c_doctypetarget_id,
+				description,
+				dateinvoiced,
+				dateacct,
+				c_bpartner_id,
+				c_bpartner_location_id,
+				isdiscountprinted,
+				c_currency_id,
+				paymentrule,
+				c_paymentterm_id,
+				m_pricelist_id,
+				createfrom,
+				generateto,
+				copyfrom,
+				fin_paymentmethod_id,
+				calculate_promotions,
+				em_aprm_processinvoice,
+				em_scnr_invoice_id,
+				em_scnr_isref_inv,
+				em_spinco_taxid,
+				em_eei_edocument,
+				em_eei_creditnote,
+				em_eei_debitnote,
+				em_eei_resendinvoice,
+				em_eei_generate_offline_2,
+				em_eei_resendinvoice_2
+			) VALUES (
+				get_uuid(),
+				vPayment.ad_client_id,
+				COALESCE(vadOrgID, vPayment.ad_org_id),
+				vPayment.createdby,
+				vPayment.updatedby,
+				vDocumentno,
+				'DR',
+				'CO',
+				'N',
+				vDoctype.c_doctype_id,
+				vDoctype.c_doctype_id,
+				'Factura: '||vReferencedInvoice.documentno||' - Sucursal: '||vOrg.name||vResult,
+				vPayment.paymentdate,
+				vPayment.paymentdate,
+				vBPartner.c_bpartner_id,
+				vBPartnerLocationID,
+				'N',
+				vSetting.c_currency_id,
+				'P',
+				vSetting.c_paymentterm_id,
+				vBPartner.m_pricelist_id,
+				'N',
+				'N',
+				'N',
+				vPaymentMethodID,
+				'N',
+				'CO',
+				vReferencedInvoiceID,
+				'Y',
+				vBPartner.taxid,
+				'N',
+				'N',
+				'N',
+				'N',
+				'N',
+				'N'
+			) RETURNING * INTO vInvoice;
+
+			FOR vRecord IN (
+				SELECT p1.*, p2.c_uom_id
+				FROM ssdnid_product p1
+					JOIN m_product p2 ON p2.m_product_id=p1.m_product_id
+				WHERE p1.ssdnid_calcinterestsetting_id=vSetting.ssdnid_calcinterestsetting_id
+			) LOOP
+				IF vRecord.interest = 'IFLP' AND vInterestLatePayment > 0 THEN
+					INSERT INTO c_invoiceline (
+						c_invoiceline_id,
+						ad_client_id,
+						ad_org_id,
+						createdby,
+						updatedby,
+						c_invoice_id,
+						line,
+						m_product_id,
+						c_uom_id,
+						qtyinvoiced,
+						priceactual,
+						linenetamt,
+						pricestd,
+						c_tax_id
+					) VALUES (
+						get_uuid(),
+						vPayment.ad_client_id,
+						COALESCE(vadOrgID, vPayment.ad_org_id),
+						vPayment.createdby,
+						vPayment.updatedby,
+						vInvoice.c_invoice_id,
+						(SELECT COALESCE(MAX(line),0)+10 FROM c_invoiceline WHERE c_invoice_id=vInvoice.c_invoice_id),
+						vRecord.m_product_id,
+						vRecord.c_uom_id,
+						1,
+						vInterestLatePayment,
+						vInterestLatePayment,
+						vInterestLatePayment,
+						vSetting.c_tax_id
+					);
+				ELSEIF vRecord.interest = 'CE' AND vCollectionExpenses > 0 THEN
+					INSERT INTO c_invoiceline (
+						c_invoiceline_id,
+						ad_client_id,
+						ad_org_id,
+						createdby,
+						updatedby,
+						c_invoice_id,
+						line,
+						m_product_id,
+						c_uom_id,
+						qtyinvoiced,
+						priceactual,
+						linenetamt,
+						pricestd,
+						c_tax_id
+					) VALUES (
+						get_uuid(),
+						vPayment.ad_client_id,
+						COALESCE(vadOrgID, vPayment.ad_org_id),
+						vPayment.createdby,
+						vPayment.updatedby,
+						vInvoice.c_invoice_id,
+						(SELECT COALESCE(MAX(line),0)+10 FROM c_invoiceline WHERE c_invoice_id=vInvoice.c_invoice_id),
+						vRecord.m_product_id,
+						vRecord.c_uom_id,
+						1,
+						vCollectionExpenses,
+						vCollectionExpenses,
+						vCollectionExpenses,
+						vSetting.c_tax_id
+					);
+				END IF;
+			END LOOP;
+			
+			-- Completamos la factura
+		  C_INVOICE_POST(NULL, vInvoice.c_invoice_id);
+			
+			-- Obtenemos el plan de pagos
+			SELECT * INTO vPaymentSchedule FROM fin_payment_schedule WHERE c_invoice_id=vInvoice.c_invoice_id;
+			IF vPaymentSchedule.fin_payment_schedule_id IS NULL THEN
+				RAISE_APPLICATION_ERROR(-20000, 'Error al completar la factura');
+			END IF;
+			
+			-- Actualizamos los planes de pago afectados
+			UPDATE fin_payment_schedule SET em_ssdnid_payment=vPaymentID
+			FROM fin_payment_scheduledetail AS psd
+				JOIN fin_payment_detail AS pd ON pd.fin_payment_detail_id=psd.fin_payment_detail_id
+			WHERE fin_payment_schedule.fin_payment_schedule_id=psd.fin_payment_schedule_invoice
+				AND pd.fin_payment_id=vPaymentID
+				AND (em_ssdnid_interestlatepayment>0 OR em_ssdnid_collectionexpenses>0);
+
+			IF vCreatePayment THEN
+				-- Numero de documento para el cobro
+				ad_sequence_doctype(vPaymentSetting.c_doctype_id, vPayment.ad_client_id, 'Y', vDocumentno);
+			
+				-- Creamos el nuevo cobro				
+				INSERT INTO fin_payment (  
+					fin_payment_id,
+					ad_client_id,
+					ad_org_id,
+					createdby,
+					updatedby,
+					isreceipt,
+					c_currency_id,
+					fin_paymentmethod_id,
+					documentno,
+					paymentdate,
+					fin_financial_account_id,
+					c_doctype_id,
+					status,
+					c_bpartner_id,
+					amount,
+					em_ssior_detailreport,
+					em_aprm_reconcile_payment,
+					em_aprm_executepayment,
+					em_aprm_add_scheduledpayments,
+					finacc_txn_amount
+				) VALUES (
+					get_uuid(),
+					vPayment.ad_client_id,
+					COALESCE(vadOrgID, vPayment.ad_org_id),
+					vPayment.createdby,
+					vPayment.updatedby,
+					'Y',
+					vSetting.c_currency_id,
+					vPaymentMethodID,
+					vDocumentno,
+					now(),
+					vPaymentSetting.fin_financial_account_id,
+					vPaymentSetting.c_doctype_id,
+					'RPAP',
+					vBPartner.c_bpartner_id,
+					vInterestLatePayment+vCollectionExpenses,
+					'Y',
+					'N',
+					'N',
+					'N',
+					vInterestLatePayment+vCollectionExpenses
+				) RETURNING * INTO vPayment;
+			ELSE
+				-- Desprocesamos el pago
+				UPDATE fin_payment SET processed='N' WHERE fin_payment_id=vPayment.fin_payment_id;
+				-- Desprocesamos la transaccion
+				UPDATE fin_finacc_transaction SET
+					processed='N'
+				WHERE fin_payment_id=vPayment.fin_payment_id;
+			END IF;
+
+			-- Creamos el detalle de pago
+			INSERT INTO fin_payment_detail (
+				fin_payment_detail_id,
+				ad_client_id,
+				ad_org_id,
+				createdby,
+				updatedby,
+				fin_payment_id,
+				amount,
+				refund
+			) values(
+				get_uuid(),
+				vPayment.ad_client_id,
+				COALESCE(vadOrgID, vPayment.ad_org_id),
+				vPayment.createdby,
+				vPayment.updatedby,
+				vPayment.fin_payment_id,
+				vInterestLatePayment+vCollectionExpenses,
+				'N'
+			) RETURNING fin_payment_detail_id INTO vPaymentDetailID;
+
+			INSERT INTO fin_payment_scheduledetail (
+				fin_payment_scheduledetail_id,
+				ad_client_id,
+				ad_org_id,
+				createdby,
+				updatedby,
+				fin_payment_detail_id,
+				fin_payment_schedule_invoice,
+				amount,
+				c_bpartner_id,
+				isinvoicepaid
+			) values(
+				get_uuid(),
+				vPayment.ad_client_id,
+				COALESCE(vadOrgID, vPayment.ad_org_id),
+				vPayment.createdby,
+				vPayment.updatedby,
+				vPaymentDetailID,
+				vPaymentSchedule.fin_payment_schedule_id,
+				vInterestLatePayment+vCollectionExpenses,
+				vBPartner.c_bpartner_id,
+				'Y'
+			);
+
+			IF vCreatePayment THEN
+				--Actualizamos el cobro nuevo
+				UPDATE fin_payment SET 
+					status='RPAE',
+					description ='Factura Nº: '||vInvoice.documentno,
+					em_aprm_process_payment ='RE',
+					processed ='Y'
+				WHERE fin_payment_id=vPayment.fin_payment_id;
+			ELSE
+				-- Actualizamos la linea del monto pendiente
+				UPDATE fin_payment_scheduledetail SET amount=(amount-(vInterestLatePayment+vCollectionExpenses))
+				WHERE fin_payment_schedule_invoice=vPaymentSchedule.fin_payment_schedule_id
+					AND fin_payment_detail_id IS NULL AND isinvoicepaid='N';
+
+				-- Actualizamos el plan de pago
+				UPDATE fin_payment_schedule SET paidamt=(paidamt+vInterestLatePayment+vCollectionExpenses),
+					outstandingamt=(outstandingamt-(vInterestLatePayment+vCollectionExpenses)),
+					em_ssdnid_payment=vPayment.fin_payment_id
+				WHERE fin_payment_schedule_id=vPaymentSchedule.fin_payment_schedule_id;
+				
+				-- Cambiamos la factura a pagado
+				UPDATE c_invoice SET ispaid='Y', totalpaid=(totalpaid+vInterestLatePayment+vCollectionExpenses),
+					outstandingamt=(outstandingamt-(vInterestLatePayment+vCollectionExpenses))
+				WHERE c_invoice_id=vInvoice.c_invoice_id;
+			
+				-- Procesamos el cobro y actualizamos el monto
+				UPDATE fin_payment SET processed='Y', amount=(amount+vInterestLatePayment+vCollectionExpenses)
+				WHERE fin_payment_id=vPaymentID;
+				
+				-- Actualizamos el deposito de la transaccion
+				UPDATE fin_finacc_transaction SET
+					depositamt=depositamt+vInterestLatePayment+vCollectionExpenses
+				WHERE fin_payment_id=vPayment.fin_payment_id;
+				
+				-- Actualizamos la cuenta financiera
+				UPDATE fin_financial_account SET currentbalance=(
+						SELECT COALESCE(SUM(fat.depositamt),0)
+						FROM fin_finacc_transaction AS fat
+							JOIN fin_financial_account AS fa ON fa.fin_financial_account_id=fat.fin_financial_account_id
+						WHERE fa.fin_financial_account_id=vPayment.fin_financial_account_id
+					) - (
+						SELECT COALESCE(SUM(fat.paymentamt),0)
+						FROM fin_finacc_transaction AS fat
+							JOIN fin_financial_account AS fa ON fa.fin_financial_account_id=fat.fin_financial_account_id
+						WHERE fa.fin_financial_account_id=vPayment.fin_financial_account_id
+					)
+				WHERE fin_financial_account_id=vPayment.fin_financial_account_id;
+				
+				-- Procesamos la transaccion
+				UPDATE fin_finacc_transaction SET
+					processed='Y'
+				WHERE fin_payment_id=vPayment.fin_payment_id;
+			END IF;
+			
+			--Actualizamos los intereses
+			UPDATE fin_payment_schedule SET em_ssdnid_interestlatepayment=em_ssdnid_interestlatepayment-em_ssdnid_tinterestlatepayment,
+				em_ssdnid_collectionexpenses=em_ssdnid_collectionexpenses-em_ssdnid_tcollectionexpenses
+			WHERE em_ssdnid_payment=vPaymentID;
+		END IF;
+		
+		--Actualizamos los intereses
+		UPDATE fin_payment_schedule SET em_ssdnid_interestlatepayment=0,
+			em_ssdnid_collectionexpenses=0,
+			em_ssdnid_generatepayment='N'
+		WHERE em_ssdnid_payment=vPaymentID;
+		
+		RETURN 'OK';
+END SSDNID_CREATEDEBITNOTE
+]]></body>
+    </function>
+  </database>

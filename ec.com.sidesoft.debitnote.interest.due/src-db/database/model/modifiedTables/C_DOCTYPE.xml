@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+  <database name="MODIFIED TABLE C_DOCTYPE">
+    <table name="C_DOCTYPE" primaryKey="C_DOCTYPE_KEY">
+      <column name="EM_SSDNID_INTERESTDEBITNOTE" primaryKey="false" required="true" type="CHAR" size="1" autoIncrement="false">
+        <default><![CDATA[N]]></default>
+        <onCreateDefault/>
+      </column>
+      <column name="EM_SSDNID_INTERESTDEBITNOTEDOC" primaryKey="false" required="true" type="CHAR" size="1" autoIncrement="false">
+        <default><![CDATA[N]]></default>
+        <onCreateDefault/>
+      </column>
+      <column name="EM_SSDNID_C_DOCTYPE_ID" primaryKey="false" required="false" type="VARCHAR" size="32" autoIncrement="false">
+        <default/>
+        <onCreateDefault/>
+      </column>
+      <foreign-key foreignTable="C_DOCTYPE" name="EM_SSDNID_C_DOCTYPE">
+        <reference local="EM_SSDNID_C_DOCTYPE_ID" foreign="C_DOCTYPE_ID"/>
+      </foreign-key>
+      <check name="EM_SSDNID_IDN"><![CDATA[EM_SSDNID_INTERESTDEBITNOTE IN ('Y', 'N')]]></check>
+    </table>
+  </database>
