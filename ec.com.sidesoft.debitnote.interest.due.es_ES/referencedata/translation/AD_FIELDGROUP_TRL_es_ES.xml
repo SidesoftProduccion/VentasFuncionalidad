@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<compiereTrl baseLanguage="en_US" language="es_ES" table="AD_FIELDGROUP" version="">
+  <row id="62F5613D30B54D89813E9D0B4A831175" trl="Y">
+    <value column="Name" isTrl="Y" original="Debit note">Nota de Débito</value>
+  </row>
+</compiereTrl>
