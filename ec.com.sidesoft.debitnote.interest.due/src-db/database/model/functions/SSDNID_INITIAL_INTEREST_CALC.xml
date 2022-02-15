@@ -25,7 +25,7 @@ BEGIN
 		FOR CurParameter IN (
 			SELECT i.Record_ID, p.ParameterName, p.P_String, p.P_Number, p.P_Date
 			FROM AD_PInstance i
-				JOIN AD_PInstance_Para p ON i.AD_PInstance_ID=p.AD_PInstance_ID
+				LEFT JOIN AD_PInstance_Para p ON i.AD_PInstance_ID=p.AD_PInstance_ID
 			WHERE i.AD_PInstance_ID=PInstance_ID
 			ORDER BY p.SeqNo
 		) LOOP
