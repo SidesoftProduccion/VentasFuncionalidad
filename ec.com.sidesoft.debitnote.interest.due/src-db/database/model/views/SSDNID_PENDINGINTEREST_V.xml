@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+  <database name="VIEW SSDNID_PENDINGINTEREST_V">
+    <view name="SSDNID_PENDINGINTEREST_V"><![CDATA[SELECT '0' AS ad_client_id, '0' AS ad_org_id, 'Y' AS isactive, now() AS created, now() AS updated, '100' AS createdby, '100' AS updatedby, ssdnid_pendinginterest.c_bpartner_id AS ssdnid_pendinginterest_v_id, ssdnid_pendinginterest.c_bpartner_id, sum(ssdnid_pendinginterest.tinterestlatepayment) AS interestlatepayment, sum(ssdnid_pendinginterest.tcollectionexpenses) AS collectionexpenses FROM ssdnid_pendinginterest GROUP BY ssdnid_pendinginterest.c_bpartner_id]]></view>
+  </database>

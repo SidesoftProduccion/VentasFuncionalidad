@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+  <database name="TRIGGER SSDNID_CUTOFF_DATE_TRG">
+    <trigger name="SSDNID_CUTOFF_DATE_TRG" table="FIN_PAYMENT_SCHEDULE" fires="before" insert="true" update="true" delete="true" foreach="row">
+      <body><![CDATA[	vYear NUMBER;
+	vMonth NUMBER;
+	vLastDayMonth NUMBER;
+	vDateInvoiced DATE;
+	vDescription VARCHAR2(2000);
+	vPayDay NUMBER;
+	vCutoffDate VARCHAR2(10);
+vLineBreak VARCHAR :='
+'; --OBTG:VARCHAR2--
+BEGIN
+   
+	IF AD_isTriggerEnabled()='N' THEN
+		IF DELETING THEN
+			RETURN OLD;
+		ELSE
+			RETURN NEW;
+		END IF; 
+	END IF;
+
+	IF TG_OP IN ('INSERT','UPDATE') THEN
+		SELECT bp.em_ssdnid_pay_day, dateinvoiced, em_eei_description INTO vPayDay, vDateInvoiced, vDescription
+		FROM c_invoice i
+			JOIN c_bpartner bp ON bp.c_bpartner_id=i.c_bpartner_id
+		WHERE i.c_invoice_id=:NEW.c_invoice_id;
+		
+		IF vPayDay IS NOT NULL THEN
+			vYear := EXTRACT(YEAR FROM :NEW.expecteddate);
+			vMonth := EXTRACT(MONTH FROM :NEW.expecteddate);
+			vLastDayMonth := EXTRACT(DAY FROM LAST_DAY(:NEW.expecteddate));
+			
+			vCutoffDate := vYear||'-'||vMonth||'-';
+			
+			IF vPayDay > vLastDayMonth THEN
+				vCutoffDate := vCutoffDate||vLastDayMonth;
+			ELSE
+				vCutoffDate := vCutoffDate||vPayDay;
+			END IF;
+			
+			:NEW.em_ssdnid_cutoff_date := vCutoffDate::TIMESTAMP;
+			
+			IF :NEW.em_ssdnid_cutoff_date::DATE < vDateInvoiced::DATE THEN
+				:NEW.em_ssdnid_cutoff_date := :NEW.em_ssdnid_cutoff_date + interval '1 month';
+			END IF;
+		ELSE
+			:NEW.em_ssdnid_cutoff_date := :NEW.expecteddate;
+		END IF;
+		
+		IF COALESCE(vDescription,'') = '' THEN
+			vDescription := vLineBreak||'Cuotas:';
+		END IF;
+
+		vDescription := vDescription||vLineBreak||'Fecha de Pago: '||:NEW.em_ssdnid_cutoff_date::DATE::VARCHAR||' - Importe: '||:NEW.amount;
+		UPDATE c_invoice SET em_eei_description=vDescription WHERE c_invoice_id=:NEW.c_invoice_id;
+	ELSE
+		UPDATE c_invoice SET em_eei_description=null WHERE c_invoice_id=:OLD.c_invoice_id;
+	END IF;
+  
+	END SSDNID_CUTOFF_DATE_TRG
+]]></body>
+    </trigger>
+  </database>

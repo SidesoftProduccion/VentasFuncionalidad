@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<compiereTrl baseLanguage="en_US" language="es_ES" table="AD_WINDOW" version="">
+  <row id="1D8FB6F5400840B09ADC53C4D745FC26" trl="Y">
+    <value column="Name" isTrl="Y" original="Default Interest Settings">Configuración Intereses por Mora</value>
+    <value column="Description" isTrl="N" original=""/>
+    <value column="Help" isTrl="N" original=""/>
+  </row>
+  <row id="FE8E949CD16E4838B98DCBAD34E3B473" trl="Y">
+    <value column="Name" isTrl="Y" original="Interest Default and Outstanding Collection">Interés Mora y Cobranza Pendientes</value>
+    <value column="Description" isTrl="N" original=""/>
+    <value column="Help" isTrl="N" original=""/>
+  </row>
+</compiereTrl>

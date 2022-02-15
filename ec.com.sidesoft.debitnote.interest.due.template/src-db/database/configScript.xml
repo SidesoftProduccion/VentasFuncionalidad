@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+  <vector>
+    <versionInfo version="3.0.34312"/>
+    <columnDataChange tablename="AD_COLUMN" columnname="AD_CALLOUT_ID" pkRow="091A45D44A9D47C2AA7794D5D7E628FE">
+      <oldValue><![CDATA[3C4025DBCADF4E6CAC199DD137FC0291]]></oldValue>
+      <newValue><![CDATA[5F226662EF1C4A2D9F1574FB454298BD]]></newValue>
+    </columnDataChange>
+  </vector>

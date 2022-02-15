@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<compiereTrl baseLanguage="en_US" language="es_ES" table="AD_MENU" version="">
+  <row id="592FA9B4889D41EE8690DF876E7A6218" trl="Y">
+    <value column="Name" isTrl="Y" original="Default Interest Settings">Configuración Intereses por Mora</value>
+    <value column="Description" isTrl="N" original=""/>
+  </row>
+  <row id="635502BB91C34049A47CF6519389F72B" trl="Y">
+    <value column="Name" isTrl="Y" original="Interest Default and Outstanding Collection">Interés Mora y Cobranza Pendientes</value>
+    <value column="Description" isTrl="N" original=""/>
+  </row>
+  <row id="8B79ECB9A56D4FE3882A34A436B0C3A1" trl="Y">
+    <value column="Name" isTrl="Y" original="Initial Interest Calculation">Cálculo Inicial de Intereses</value>
+    <value column="Description" isTrl="N" original=""/>
+  </row>
+  <row id="B038570F8E2245009285F67E184ED905" trl="Y">
+    <value column="Name" isTrl="Y" original="Transactions">Transacciones</value>
+    <value column="Description" isTrl="N" original=""/>
+  </row>
+  <row id="C004167983974B85A0D3824D3DC419F8" trl="Y">
+    <value column="Name" isTrl="Y" original="Setup">Configuración</value>
+    <value column="Description" isTrl="N" original=""/>
+  </row>
+  <row id="C7CEBBF839494CB89D25A792B0661CA5" trl="Y">
+    <value column="Name" isTrl="Y" original="Interest Calculation">Cálculo de Intereses</value>
+    <value column="Description" isTrl="N" original=""/>
+  </row>
+  <row id="F7C65E548CEB41BEB5537EB3A3EB62DA" trl="Y">
+    <value column="Name" isTrl="Y" original="Update Cut Off Date">Actualizar la Fecha de Corte</value>
+    <value column="Description" isTrl="N" original=""/>
+  </row>
+</compiereTrl>
