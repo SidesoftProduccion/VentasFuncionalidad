@@ -132,6 +132,7 @@ public class AddPaymentOrderInvoicesTransformer extends HqlQueryTransformer {
       selectClause.append(" COALESCE(ips.expectedDate, ops.expectedDate) as expectedDate, ");
       selectClause.append(" max(COALESCE(ips.amount, ops.amount)) as expectedAmount, ");
       selectClause.append(" max(COALESCE(inv.grandTotalAmount, 0)) as invoicedAmount, ");
+      selectClause.append(" inv." + Invoice.PROPERTY_INVOICEDATE + " as invoiceDate, ");
     } else if ("O".equals(transactionType)) {
       selectClause.append(" ord.documentNo as salesOrderNo, ");
       selectClause.append(getAggregatorFunction(" case when (inv."
@@ -145,6 +146,7 @@ public class AddPaymentOrderInvoicesTransformer extends HqlQueryTransformer {
       selectClause.append(" COALESCE(ops.expectedDate, ips.expectedDate) as expectedDate, ");
       selectClause.append(" max(COALESCE(ips.amount, ops.amount)) as expectedAmount, ");
       selectClause.append(" sum(COALESCE(inv.grandTotalAmount, 0)) as invoicedAmount, ");
+      selectClause.append(" inv." + Invoice.PROPERTY_INVOICEDATE + " as invoiceDate, ");
     } else {
       selectClause.append(" ord.documentNo as salesOrderNo, ");
       selectClause.append(" case when (inv." + Invoice.PROPERTY_SALESTRANSACTION
@@ -158,6 +160,7 @@ public class AddPaymentOrderInvoicesTransformer extends HqlQueryTransformer {
       selectClause.append(" COALESCE(ips.expectedDate, ops.expectedDate) as expectedDate, ");
       selectClause.append(" max(COALESCE(ips.amount, ops.amount)) as expectedAmount, ");
       selectClause.append(" max(COALESCE(inv.grandTotalAmount, 0)) as invoicedAmount, ");
+      selectClause.append(" inv." + Invoice.PROPERTY_INVOICEDATE + " as invoiceDate, ");
     }
     /* RARC BEGIN */
     selectClause
