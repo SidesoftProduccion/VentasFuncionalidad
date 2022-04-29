@@ -5,7 +5,7 @@
 	vMonth NUMBER;
 	vLastDayMonth NUMBER;
 	vDateInvoiced DATE;
-	vDescription VARCHAR2(2000);
+	vDescription TEXT;
 	vPayDay NUMBER;
 	vCutoffDate VARCHAR2(10);
 vLineBreak VARCHAR :='
